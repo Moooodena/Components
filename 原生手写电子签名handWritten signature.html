@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div style="position: fixed;">
+        <button class="undo">撤销</button>
+        <button class="redo">恢复</button>
+        <!-- 滑块调整画笔粗细 -->
+        <input type="range" class="lineWidth" value="1" min="1" max="10" />
+        <!-- 复选框启用橡皮擦 -->
+        <input type="checkbox" class="eraser">
+        <label for="eraser">橡皮擦</label>
+    </div>
+</body>
+<script>
+    // 创建一个canvas， 将其宽高设置与浏览器一致
+    let canvas = document.createElement('canvas')
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    document.body.appendChild(canvas)
+
+    // 获取画布上下文
+    // HTMLCanvasElement.getContext() 方法返回canvas 的上下文，如果上下文没有定义则返回 null
+    // "2d", 建立一个 CanvasRenderingContext2D 二维渲染上下文。
+    let context = canvas.getContext('2d')
+
+    // 定义历史操作的数组
+    let undoList = []
+    let redoList = []
+
+    // 画笔粗细调整
+    document.querySelector('.lineWidth').addEventListener('change', function(){
+        context.lineWidth = this.value
+    })
+
+    // 启用橡皮擦
+    document.querySelector('.eraser').addEventListener('click', function(){
+        if(this.checked){
+            // "destination-out" 仅会保留画笔外的内容
+            context.globalCompositeOperation = "destination-out"
+        }else{
+            context.globalCompositeOperation = "source-over"
+        }
+    })
+    canvas.addEventListener('mousedown', function(e){
+        // 记住此时为按下状态
+        this.isMouseDown = true
+        // CanvasRenderingContext2D.moveTo() 是 Canvas 2D API 将一个新的子路径的起始点移动到 (x，y) 坐标的方法。
+        context.moveTo(e.pageX, e.pageY)
+        // CanvasRenderingContext2D.beginPath() 是 Canvas 2D API 通过清空子路径列表开始一个新路径的方法。当你想创建一个新的路径时，调用此方法
+        // 撤销绘画时，不会将之前的点绘画出来
+        context.beginPath()
+    })
+
+    // 鼠标移动时进行绘画
+    canvas.addEventListener('mousemove', function(e){
+        // 仅在鼠标按下时进行绘画
+        if(this.isMouseDown){
+            // CanvasRenderingContext2D.lineTo() 是 Canvas 2D API 使用直线连接子路径的终点到 x，y 坐标的方法（并不会真正地绘制）。
+            context.lineTo(e.pageX, e.pageY)
+            // CanvasRenderingContext2D.strokeStyle 是 Canvas 2D API 描述画笔（绘制图形）颜色或者样式的属性。默认值是 #000 (black)。
+            context.stroke()
+        }
+    })
+
+    // 鼠标抬起时
+    canvas.addEventListener('mouseup', function(e){
+        this.isMouseDown = false
+        // CanvasRenderingContext2D.getImageData() 返回一个ImageData对象，用来描述 canvas 区域隐含的像素数据，这个区域通过矩形表示，起始点为*(sx, sy)、宽为sw、高为sh
+        // ImageData ctx.getImageData(sx, sy, sw, sh)  
+        // sx 将要被提取的图像数据矩形区域的左上角 x 坐标
+        // sy 将要被提取的图像数据矩形区域的左上角 y 坐标
+        // 撤销时绘制
+        undoList.push(context.getImageData(0, 0, canvas.width, canvas.height))
+    })
+
+    // 双击下载图片
+    canvas.addEventListener('dblclick', function(){
+        // 创建一个链接
+        let link = document.createElement('a')
+        // 将图像转成链接
+        // HTMLCanvasElement.toDataURL() 方法返回一个包含图片展示的 data URI 。可以使用 type 参数其类型，默认为 PNG 格式。图片的分辨率为 96dpi
+        link.href = canvas.toDataURL('image/png')
+        // 调用click模拟用户点击下载
+        // 添加download属性，可以下载，设置为png图片
+        link.download = "draw.png"
+        // 模拟点击下载
+        link.click()
+    })
+
+    // 给两个按钮添加点击事件
+    // 撤销按钮
+    document.querySelector('.undo').addEventListener('click', function(){
+        // 点击时将undoList里记录的画面移到redoList中
+        if(undoList.length > 0){
+            redoList.push(undoList.pop())
+            // 调用历史记录的方法
+            reDraw()
+        }
+    })
+    // 恢复按钮
+    document.querySelector('.redo').addEventListener('click', function(){
+        // 点击时将redoList里记录的画面移到undoList中
+        if(redoList.length > 0){
+            undoList.push(redoList.pop())
+            // 调用历史记录的方法
+            reDraw()
+        }
+    })
+
+    // 将历史记录画到画布上
+    function reDraw(){
+        // 如果撤销列表里有记录，就将撤销列表里面的最后一项画到画布上,不然就清空整个画布，让画布回到最开始的状态
+        if(undoList.length > 0){
+            context.putImageData(undoList[undoList.length - 1], 0, 0)
+        }else{
+            context.clearRect(0, 0, canvas.width, canvas.height)
+        }
+    }
+</script>
+</html>
